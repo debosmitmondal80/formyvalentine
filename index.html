@@ -3,83 +3,104 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Neon Love Mobile</title>
+    <title>Neon Love Rain</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Pacifico&display=swap');
 
-        body {
+        /* 1. GLOBAL RESET - The most important part */
+        html, body {
             margin: 0;
             padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden; /* Cuts off anything outside the screen */
             background-color: #050505;
-            /* Use dynamic viewport height for mobile browsers */
-            height: 100dvh; 
-            width: 100vw;
-            overflow: hidden;
             font-family: 'Pacifico', cursive;
             
-            /* CRITICAL: Disables default touch actions (scrolling/zooming) */
+            /* Locks the screen in place */
+            position: fixed; 
+            top: 0;
+            left: 0;
+            
+            /* Disables the "bounce" effect on iOS */
+            overscroll-behavior: none;
             touch-action: none; 
-            -webkit-tap-highlight-color: transparent; /* Removes blue tap box on Android */
         }
 
-        /* --- Rain Styles --- */
+        /* 2. THE STAGE - A container that holds everything */
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100dvh; /* Dynamic height for mobile bars */
+            overflow: hidden; /* Double safety */
+            pointer-events: auto; /* Allows clicks */
+            z-index: 1;
+        }
+
+        /* Neon Text Styles */
         .neon-text {
             position: absolute;
-            top: -10%;
+            top: -50px; /* Start just above screen */
             color: #fff;
             white-space: nowrap;
-            z-index: 1;
+            z-index: 10;
             pointer-events: none;
             font-weight: bold;
-            will-change: transform, opacity; /* Hint to mobile GPU */
+            will-change: transform;
         }
 
-        /* --- Trail Styles (Finger Paint) --- */
+        /* Trail Styles */
         .trail {
             position: absolute;
-            width: 15px; /* Slightly larger for thumb visibility */
-            height: 15px;
+            width: 20px;
+            height: 20px;
             border-radius: 50%;
             background: white;
             pointer-events: none;
-            z-index: 100;
-            box-shadow: 0 0 10px #fff, 0 0 20px #ff0054;
-            opacity: 0.8;
+            z-index: 50;
+            box-shadow: 0 0 15px #fff, 0 0 25px #ff0054;
+            transform: translate(-50%, -50%); /* Centers div on finger */
         }
 
-        /* --- Burst Styles (Tap Explosion) --- */
+        /* Burst Styles */
         .burst-particle {
             position: absolute;
             pointer-events: none;
-            z-index: 101;
-            font-size: 24px; /* Larger icons for mobile */
+            z-index: 60;
+            font-size: 24px;
+            transform: translate(-50%, -50%);
         }
 
-        /* --- Helper Text --- */
+        /* Hint Text */
         .hint {
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
             color: rgba(255, 255, 255, 0.2);
-            font-size: 1.5rem;
+            font-size: 1.2rem;
             pointer-events: none;
             text-align: center;
-            width: 80%;
+            width: 100%;
+            z-index: 5;
         }
     </style>
 </head>
 <body>
 
-    <div class="hint" id="hint-text">Tap & Drag <br> anywhere! ✨</div>
+    <div id="canvas-container">
+        <div class="hint" id="hint-text">Touch & Drag <br> for Magic ✨</div>
+    </div>
 
     <script>
-        // --- CONFIGURATION ---
-        const messages = ["I Love You", "Te Amo", "Forever", "My Everything", "Be Mine", "XOXO", "❤️", "😍"];
+        const container = document.getElementById('canvas-container');
+        const messages = ["I Love You", "Te Amo", "Forever", "My Everything", "Be Mine", "XOXO", "❤️", "🥰", "Only You"];
         const neonColors = ["#ff0054", "#00f2ea", "#bc13fe", "#39ff14", "#ffea00"];
 
         /* =========================================
-           PART 1: THE NEON RAIN
+           PART 1: RAIN GENERATOR
            ========================================= */
         function createNeonDrop() {
             const drop = document.createElement('div');
@@ -89,51 +110,77 @@
             const color = neonColors[Math.floor(Math.random() * neonColors.length)];
             drop.style.textShadow = `0 0 5px ${color}, 0 0 15px ${color}`;
             
-            drop.style.left = Math.random() * 90 + 'vw'; // Keep within screen width
-            drop.style.fontSize = (Math.random() * 1.5 + 1.2) + 'rem'; // Readable size on mobile
+            // Safety: Ensure text doesn't spawn off the right edge
+            // We spawn between 5% and 80% width to avoid horizontal overflow
+            drop.style.left = (Math.random() * 80 + 5) + '%'; 
             
-            document.body.appendChild(drop);
+            drop.style.fontSize = (Math.random() * 1.5 + 1.2) + 'rem';
+            
+            container.appendChild(drop);
 
-            // Animate using Web Animations API (Better performance on mobile)
+            // Animation
+            const duration = Math.random() * 3000 + 3000;
             const animation = drop.animate([
-                { transform: 'translateY(-10vh) scale(0.8)', opacity: 0 },
+                { transform: 'translateY(-10vh)', opacity: 0 },
                 { opacity: 1, offset: 0.1 },
-                { transform: 'translateY(110dvh) scale(1)', opacity: 0.5 }
+                { transform: 'translateY(110vh)', opacity: 0.5 }
             ], {
-                duration: Math.random() * 3000 + 3000, // 3-6 seconds
+                duration: duration,
                 easing: 'linear'
             });
 
             animation.onfinish = () => drop.remove();
         }
 
-        // Slightly slower creation rate for mobile battery life
-        setInterval(createNeonDrop, 200);
-
+        setInterval(createNeonDrop, 250);
 
         /* =========================================
-           PART 2: TOUCH INTERACTION (Unified)
+           PART 2: TOUCH INPUT ENGINE
            ========================================= */
         
-        // Handle both Mouse and Touch with one logic
-        function handleInput(x, y, type) {
-            // Hide the hint text on first touch
-            const hint = document.getElementById('hint-text');
-            if (hint && hint.style.opacity !== '0') hint.style.opacity = '0';
+        function handleInput(e) {
+            // CRITICAL: Stop the browser from scrolling
+            e.preventDefault();
 
-            if (type === 'move') {
-                createTrail(x, y);
-            } else if (type === 'tap') {
-                createBurst(x, y);
+            // Handle touch points (loops through all fingers touching screen)
+            if(e.touches) {
+                for (let i = 0; i < e.touches.length; i++) {
+                    const touch = e.touches[i];
+                    createTrail(touch.clientX, touch.clientY);
+                }
+            } 
+            // Handle Mouse
+            else {
+                createTrail(e.clientX, e.clientY);
             }
+
+            // Fade out hint
+            const hint = document.getElementById('hint-text');
+            if(hint) hint.style.opacity = '0';
         }
 
-        // --- TRAIL FUNCTION ---
+        function handleTap(e) {
+            e.preventDefault();
+            let x, y;
+            if(e.changedTouches) {
+                x = e.changedTouches[0].clientX;
+                y = e.changedTouches[0].clientY;
+            } else {
+                x = e.clientX;
+                y = e.clientY;
+            }
+            createBurst(x, y);
+        }
+
+        /* =========================================
+           PART 3: VISUAL EFFECTS
+           ========================================= */
+        
         let isThrottled = false;
         function createTrail(x, y) {
             if (isThrottled) return;
             isThrottled = true;
-            setTimeout(() => isThrottled = false, 40); // 40ms throttle
+            setTimeout(() => isThrottled = false, 30);
 
             const trail = document.createElement('div');
             trail.classList.add('trail');
@@ -142,67 +189,47 @@
             
             const color = neonColors[Math.floor(Math.random() * neonColors.length)];
             trail.style.backgroundColor = color;
-            trail.style.boxShadow = `0 0 10px ${color}`;
+            trail.style.boxShadow = `0 0 10px ${color}, 0 0 20px ${color}`;
 
-            document.body.appendChild(trail);
+            container.appendChild(trail);
 
             trail.animate([
-                { transform: 'scale(1)', opacity: 0.8 },
-                { transform: 'scale(0)', opacity: 0 }
-            ], {
-                duration: 800,
-                easing: 'ease-out'
-            }).onfinish = () => trail.remove();
+                { transform: 'translate(-50%, -50%) scale(1)', opacity: 0.8 },
+                { transform: 'translate(-50%, -50%) scale(0)', opacity: 0 }
+            ], { duration: 600, easing: 'ease-out' }).onfinish = () => trail.remove();
         }
 
-        // --- BURST FUNCTION ---
         function createBurst(x, y) {
-            for (let i = 0; i < 12; i++) { // 12 particles is enough for mobile
-                const particle = document.createElement('div');
-                particle.classList.add('burst-particle');
-                particle.innerText = '❤️';
-                particle.style.left = x + 'px';
-                particle.style.top = y + 'px';
+            for (let i = 0; i < 10; i++) {
+                const p = document.createElement('div');
+                p.classList.add('burst-particle');
+                p.innerText = '❤️';
+                p.style.left = x + 'px';
+                p.style.top = y + 'px';
                 
-                document.body.appendChild(particle);
+                container.appendChild(p);
 
                 const destX = (Math.random() - 0.5) * 150;
                 const destY = (Math.random() - 0.5) * 150;
                 const rotate = Math.random() * 360;
 
-                particle.animate([
-                    { transform: `translate(0, 0) rotate(0deg)`, opacity: 1 },
-                    { transform: `translate(${destX}px, ${destY}px) rotate(${rotate}deg)`, opacity: 0 }
-                ], {
-                    duration: 800 + Math.random() * 500,
-                    easing: 'cubic-bezier(0, .9, .57, 1)'
-                }).onfinish = () => particle.remove();
+                p.animate([
+                    { transform: `translate(-50%, -50%) rotate(0deg)`, opacity: 1 },
+                    { transform: `translate(calc(-50% + ${destX}px), calc(-50% + ${destY}px)) rotate(${rotate}deg)`, opacity: 0 }
+                ], { duration: 800 + Math.random() * 300 }).onfinish = () => p.remove();
             }
         }
 
         /* =========================================
-           PART 3: EVENT LISTENERS (Mobile Specific)
+           PART 4: EVENT LISTENERS
            ========================================= */
-
-        // Touch Start (Tap)
-        document.addEventListener('touchstart', (e) => {
-            // e.preventDefault(); // Prevents mouse emulation, keeping it snappy
-            const touch = e.touches[0];
-            handleInput(touch.clientX, touch.clientY, 'tap');
-            handleInput(touch.clientX, touch.clientY, 'move'); // Also start trail immediately
-        }, { passive: false });
-
-        // Touch Move (Drag)
-        document.addEventListener('touchmove', (e) => {
-            // Prevent scrolling so the user can draw freely
-            e.preventDefault(); 
-            const touch = e.touches[0];
-            handleInput(touch.clientX, touch.clientY, 'move');
-        }, { passive: false });
-
-        // Mouse Fallbacks (for testing on computer)
-        document.addEventListener('click', (e) => handleInput(e.clientX, e.clientY, 'tap'));
-        document.addEventListener('mousemove', (e) => handleInput(e.clientX, e.clientY, 'move'));
+        // Use 'passive: false' to allow us to block scrolling
+        document.addEventListener('touchmove', handleInput, { passive: false });
+        document.addEventListener('touchstart', handleTap, { passive: false });
+        
+        // Mouse fallbacks
+        document.addEventListener('mousemove', handleInput);
+        document.addEventListener('click', handleTap);
 
     </script>
 </body>
